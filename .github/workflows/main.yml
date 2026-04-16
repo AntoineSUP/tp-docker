@@ -6,13 +6,16 @@ on:
       - main
       - develop
   pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
   test-backend:
     runs-on: ubuntu-24.04
     steps:
-      # Récupère le code depuis GitHub
+      # Récupère le code depuis GitHub (fetch-depth 0 pour SonarCloud)
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Installe Java 21
       - name: Set up JDK 21
@@ -21,9 +24,19 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      # Build et teste l'application avec Maven
-      - name: Build and test with Maven
-        run: mvn clean verify --file ./backend/pom.xml
+      # Cache Maven pour accélérer les builds
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      # Build, teste ET analyse le code avec SonarCloud
+      - name: Build, test and analyze with Maven and SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn -B verify sonar:sonar -Dsonar.projectKey=AntoineSUP_tp-docker -Dsonar.organization=antoinesup -Dsonar.host.url=https://sonarcloud.io --file ./backend/pom.xml
 
   build-and-push-docker-image:
     needs: test-backend  # se lance UNIQUEMENT si test-backend est vert
@@ -43,7 +56,7 @@ jobs:
         with:
           context: ./backend
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-backend:latest
-          push: ${{ github.ref == 'refs/heads/main' }}  # push uniquement sur main
+          push: ${{ github.ref == 'refs/heads/main' }}
 
       # Build et push de la database
       - name: Build image and push database
