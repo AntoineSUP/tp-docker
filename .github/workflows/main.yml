@@ -24,3 +24,39 @@ jobs:
       # Build et teste l'application avec Maven
       - name: Build and test with Maven
         run: mvn clean verify --file ./backend/pom.xml
+
+  build-and-push-docker-image:
+    needs: test-backend  # se lance UNIQUEMENT si test-backend est vert
+    runs-on: ubuntu-24.04
+    steps:
+      # Récupère le code depuis GitHub
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Connexion à Docker Hub avec les secrets GitHub
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      # Build et push du backend
+      - name: Build image and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-backend:latest
+          push: ${{ github.ref == 'refs/heads/main' }}  # push uniquement sur main
+
+      # Build et push de la database
+      - name: Build image and push database
+        uses: docker/build-push-action@v6
+        with:
+          context: ./database
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
+          push: ${{ github.ref == 'refs/heads/main' }}
+
+      # Build et push du httpd
+      - name: Build image and push httpd
+        uses: docker/build-push-action@v6
+        with:
+          context: ./httpd
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
+          push: ${{ github.ref == 'refs/heads/main' }}
