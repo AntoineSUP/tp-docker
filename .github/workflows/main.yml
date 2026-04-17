@@ -1,0 +1,186 @@
+name: CI devops 2025
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  # ============================================================
+  # JOB 1 : Tests du backend
+  # ============================================================
+  test-backend:
+    runs-on: ubuntu-24.04
+    steps:
+      # Récupère le code (fetch-depth 0 nécessaire pour SonarCloud)
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Installe Java 21
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      # Cache Maven pour éviter de retélécharger les dépendances à chaque build
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      # Build et teste le backend
+      - name: Build and test with Maven
+        run: mvn -B verify --file ./backend/pom.xml
+
+  # ============================================================
+  # JOB 2 : Analyse qualité SonarCloud (après les tests)
+  # ============================================================
+  sonar-analysis:
+    needs: test-backend
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      # Analyse SonarCloud
+      - name: Analyze with SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn -B verify sonar:sonar -Dsonar.projectKey=AntoineSUP_tp-docker -Dsonar.organization=antoinesup -Dsonar.host.url=https://sonarcloud.io --file ./backend/pom.xml
+
+  # ============================================================
+  # JOB 3 : Build image backend (après sonar)
+  # ============================================================
+  build-backend:
+    needs: sonar-analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-backend:latest
+          push: false  # on build uniquement, pas de push ici
+
+  # ============================================================
+  # JOB 4 : Build image database (après sonar)
+  # ============================================================
+  build-database:
+    needs: sonar-analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build database Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./database
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
+          push: false
+
+  # ============================================================
+  # JOB 5 : Build image httpd (après sonar)
+  # ============================================================
+  build-httpd:
+    needs: sonar-analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build httpd Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./httpd
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
+          push: false
+
+  # ============================================================
+  # JOB 6 : Push image backend sur Docker Hub (main uniquement)
+  # ============================================================
+  push-backend:
+    needs: build-backend
+    if: github.ref == 'refs/heads/main'  # uniquement sur main
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      - name: Push backend Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-backend:latest
+          push: true  # push uniquement sur main
+
+  # ============================================================
+  # JOB 7 : Push image database sur Docker Hub (main uniquement)
+  # ============================================================
+  push-database:
+    needs: build-database
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      - name: Push database Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./database
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
+          push: true
+
+  # ============================================================
+  # JOB 8 : Push image httpd sur Docker Hub (main uniquement)
+  # ============================================================
+  push-httpd:
+    needs: build-httpd
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      - name: Push httpd Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./httpd
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
+          push: true
