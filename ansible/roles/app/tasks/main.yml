@@ -1,3 +1,14 @@
+- name: Pull latest backend image
+  community.docker.docker_image:
+    name: 1oooka/tp-devops-backend:latest
+    source: pull
+    force_source: true
+
+- name: Remove existing app container
+  community.docker.docker_container:
+    name: backend
+    state: absent
+
 - name: Run application container
   community.docker.docker_container:
     name: backend

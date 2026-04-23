@@ -1,3 +1,14 @@
+- name: Pull latest httpd image
+  community.docker.docker_image:
+    name: 1oooka/tp-devops-httpd:latest
+    source: pull
+    force_source: true  # force le pull même si latest existe déjà
+
+- name: Remove existing proxy container
+  community.docker.docker_container:
+    name: proxy
+    state: absent
+
 - name: Run HTTPD container
   community.docker.docker_container:
     name: proxy

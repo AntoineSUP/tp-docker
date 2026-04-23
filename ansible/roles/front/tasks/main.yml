@@ -1,3 +1,14 @@
+- name: Pull latest front image
+  community.docker.docker_image:
+    name: 1oooka/tp-devops-front:latest
+    source: pull
+    force_source: true
+
+- name: Remove existing front container
+  community.docker.docker_container:
+    name: front
+    state: absent
+
 - name: Run front container
   community.docker.docker_container:
     name: front
