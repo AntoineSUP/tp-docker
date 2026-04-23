@@ -189,7 +189,7 @@ jobs:
   # JOB 9 : Déploiement Ansible sur le serveur (main uniquement)
   # ============================================================
   deploy:
-    needs: [push-backend, push-database, push-httpd]  # attend que les 3 images soient pushées
+    needs: [push-backend, push-database, push-httpd, push-front]  # attend que les 3 images soient pushées
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
@@ -216,3 +216,41 @@ jobs:
       - name: Deploy with Ansible
         run: |
           ansible-playbook -i ansible/inventories/setup.yml ansible/playbook.yml
+
+  # ============================================================
+  # JOB : Build image front (après sonar)
+  # ============================================================
+  build-front:
+    needs: sonar-analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build front Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./front
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-front:latest
+          push: false
+
+  # ============================================================
+  # JOB : Push image front sur Docker Hub (main uniquement)
+  # ============================================================
+  push-front:
+    needs: build-front
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      - name: Push front Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./front
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-front:latest
+          push: true
