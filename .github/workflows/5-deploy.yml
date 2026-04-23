@@ -1,8 +1,8 @@
-name: "🚀 Phase 5 — Deploy"
+name: "Phase 5 — Deploy"
 
 on:
   workflow_run:
-    workflows: ["📦 Phase 4 — Publish Images"]
+    workflows: ["Phase 4 — Publish Images"]
     types:
       - completed
     branches:

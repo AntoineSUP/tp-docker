@@ -1,8 +1,8 @@
-name: "🔍 Phase 2 — Quality Gate"
+name: "Phase 2 — Quality Gate"
 
 on:
   workflow_run:
-    workflows: ["🧪 Phase 1 — Test Backend"]
+    workflows: ["Phase 1 — Test Backend"]
     types:
       - completed
 
