@@ -1,0 +1,12 @@
+- name: Run database container
+  community.docker.docker_container:
+    name: database
+    image: 1oooka/tp-devops-database:latest
+    state: started
+    restart_policy: always
+    networks:
+      - name: app_network
+    env:
+      POSTGRES_DB: db
+      POSTGRES_USER: usr
+      POSTGRES_PASSWORD: pwd

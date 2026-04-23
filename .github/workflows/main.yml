@@ -184,3 +184,35 @@ jobs:
           context: ./httpd
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
           push: true
+
+  # ============================================================
+  # JOB 9 : Déploiement Ansible sur le serveur (main uniquement)
+  # ============================================================
+  deploy:
+    needs: [push-backend, push-database, push-httpd]  # attend que les 3 images soient pushées
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      # Récupère le code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Installe Ansible
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible python3-pip
+          pip3 install ansible
+
+      # Configure la clé SSH
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa_takima
+          chmod 600 ~/.ssh/id_rsa_takima
+          ssh-keyscan -H antoine.jarmoszko.takima.school >> ~/.ssh/known_hosts
+
+      # Lance le playbook Ansible
+      - name: Deploy with Ansible
+        run: |
+          ansible-playbook -i ansible/inventories/setup.yml ansible/playbook.yml
