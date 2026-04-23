@@ -1,4 +1,0 @@
-FROM eclipse-temurin:21-jdk-alpine
-COPY Main.java .
-RUN javac Main.java
-CMD ["java", "Main"]
