@@ -74,26 +74,27 @@ jobs:
           push: true
 
   deploy:
-    name: "Deploy with Ansible"
-    needs: [push-backend, push-database, push-httpd, push-front]
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      name: "Deploy with Ansible"
+      needs: [push-backend, push-database, push-httpd, push-front]
+      if: ${{ github.event.workflow_run.conclusion == 'success' }}
+      runs-on: ubuntu-24.04
+      environment: production  
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
 
-      - name: Install Ansible
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible python3-pip
-          pip3 install ansible
+        - name: Install Ansible
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y ansible python3-pip
+            pip3 install ansible
 
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa_takima
-          chmod 600 ~/.ssh/id_rsa_takima
-          ssh-keyscan -H antoine.jarmoszko.takima.school >> ~/.ssh/known_hosts
+        - name: Setup SSH key
+          run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa_takima
+            chmod 600 ~/.ssh/id_rsa_takima
+            ssh-keyscan -H antoine.jarmoszko.takima.school >> ~/.ssh/known_hosts
 
-      - name: Deploy with Ansible
-        run: ansible-playbook -i ansible/inventories/setup.yml ansible/playbook.yml
+        - name: Deploy with Ansible
+          run: ansible-playbook -i ansible/inventories/setup.yml ansible/playbook.yml
